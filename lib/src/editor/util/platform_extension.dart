@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import '../../non_web.dart' if (dart.library.html) 'package:web/web.dart'
+import '../../non_web.dart' if (dart.library.js_interop) 'package:web/web.dart'
     as web;
 import 'package:universal_platform/universal_platform.dart';
 
