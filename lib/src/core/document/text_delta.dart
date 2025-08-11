@@ -6,11 +6,98 @@ import 'package:diff_match_patch/diff_match_patch.dart' as diff_match_patch;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+typedef AppFlowyEditorSliceAttributes = Attributes? Function(
+  Delta delta,
+  int index,
+);
+
+/// Default slice attributes function.
+///
+/// For the BIUS attributes, the slice attributes function will slice the attributes from the previous position,
+///   if the index is 0, it will slice the attributes from the next position.
+/// For the link and code attributes, the slice attributes function will only work if the index is in the range of the link or code.
+AppFlowyEditorSliceAttributes? defaultAppFlowyEditorSliceAttributes = (
+  delta,
+  int index,
+) {
+  if (index < 0) {
+    return null;
+  }
+
+  // if the index == 0, slice the attributes from the next position.
+  if (index == 0 && delta.isNotEmpty) {
+    final attributes = delta.slice(index, index + 1).firstOrNull?.attributes;
+    if (attributes == null) {
+      return null;
+    }
+
+    // if the attributes is not supported, return null.
+    if (attributes.keys.any(
+      (element) => !AppFlowyRichTextKeys.supportSliced.contains(element),
+    )) {
+      return null;
+    }
+
+    return attributes;
+  }
+
+  // if the index is not 0, slice the attributes from the previous position.
+  final prevAttributes = delta.slice(index - 1, index).firstOrNull?.attributes;
+  if (prevAttributes == null) {
+    return null;
+  }
+  // if the prevAttributes doesn't include the code/href, return it.
+  // Otherwise, check if the nextAttributes includes the code/href.
+  if (!prevAttributes.keys.any(
+    (element) => AppFlowyRichTextKeys.partialSliced.contains(element),
+  )) {
+    return prevAttributes;
+  }
+
+  // check if the nextAttributes includes the code.
+  final nextAttributes = delta.slice(index, index + 1).firstOrNull?.attributes;
+  if (nextAttributes == null) {
+    return prevAttributes
+      ..removeWhere(
+        (key, _) => AppFlowyRichTextKeys.partialSliced.contains(key),
+      );
+  }
+
+  // if the nextAttributes doesn't include the code/href, exclude the code/href format.
+  if (!nextAttributes.keys.any(
+    (element) => AppFlowyRichTextKeys.partialSliced.contains(element),
+  )) {
+    return prevAttributes
+      ..removeWhere(
+        (key, _) => AppFlowyRichTextKeys.partialSliced.contains(key),
+      );
+  }
+
+  return prevAttributes;
+};
+
+/// Default slice attributes function.
+///
+/// You can override the default slice attributes function by customizing
+/// different slice rules, and fallback to the default one if not specified.
+///
+/// Rules
+/// 1. If the index is less than 0, return null.
+/// 2. If the index is 0, slice the attributes from the next position.
+/// 3. If the index is greater than 0, slice the attributes from the previous position.
+/// 4. If the attributes is not supported, return null.
+AppFlowyEditorSliceAttributes? appflowyEditorSliceAttributes =
+    defaultAppFlowyEditorSliceAttributes;
+
 // constant number: 2^53 - 1
 const int _maxInt = 9007199254740991;
 
 sealed class TextOperation {
   Attributes? get attributes;
+
+  // available for TextInsert, for TextDelete and TextRetain, it's null
+  Object? get data => null;
+
   int get length;
 
   bool get isEmpty => length == 0;
@@ -29,6 +116,9 @@ class TextInsert extends TextOperation {
 
   @override
   int get length => text.length;
+
+  @override
+  Object? get data => text;
 
   @override
   Attributes? get attributes => _attributes != null ? {..._attributes} : null;
@@ -351,10 +441,10 @@ class Delta extends Iterable<TextOperation> {
             );
             final thisOp = thisIter.next(opLength);
             final otherOp = otherIter.next(opLength);
-            if (isAttributesEqual(thisOp.attributes, otherOp.attributes)) {
+            if (thisOp.data == otherOp.data) {
               retDelta.retain(
                 opLength,
-                attributes: invertAttributes(
+                attributes: diffAttributes(
                   thisOp.attributes,
                   otherOp.attributes,
                 ),
@@ -515,33 +605,7 @@ class Delta extends Iterable<TextOperation> {
   }
 
   Attributes? sliceAttributes(int index) {
-    if (index < 0) {
-      return null;
-    }
-
-    Attributes? attributes;
-
-    // if the index == 0, slice the attributes from the next position.
-    if (index == 0 && length >= 1) {
-      attributes = slice(index, index + 1).firstOrNull?.attributes;
-    } else {
-      attributes = slice(index - 1, index).firstOrNull?.attributes;
-    }
-
-    if (attributes == null) {
-      return null;
-    }
-
-    if (!attributes.keys.every(
-      (element) => AppFlowyRichTextKeys.supportSliced.contains(element),
-    )) {
-      AppFlowyEditorLog.editor.info(
-        'The attributes: $attributes is not supported in sliceAttributes.',
-      );
-      return null;
-    }
-
-    return attributes;
+    return appflowyEditorSliceAttributes?.call(this, index);
   }
 }
 

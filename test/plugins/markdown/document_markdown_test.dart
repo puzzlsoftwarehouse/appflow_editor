@@ -12,11 +12,50 @@ void main() {
       expect(document.toJson(), data);
     });
 
+    test('soft line break with two spaces', () {
+      const markdown = 'first line  \nsecond line';
+      final document = markdownToDocument(markdown);
+      expect(document.root.children.length, 2);
+      expect(document.root.children[0].delta?.toPlainText(), 'first line');
+      expect(document.root.children[1].delta?.toPlainText(), 'second line');
+    });
+
     test('documentToMarkdown()', () {
       final document = markdownToDocument(markdownDocument);
       final markdown = documentToMarkdown(document);
 
       expect(markdown, markdownDocumentEncoded);
+    });
+
+    test('paragraph + image with single \n', () {
+      const markdown = '''This is the first line
+![image](https://example.com/image.png)''';
+      final document = markdownToDocument(markdown);
+      final nodes = document.root.children;
+      expect(nodes.length, 2);
+      expect(nodes[0].delta?.toPlainText(), 'This is the first line');
+      expect(nodes[1].attributes['url'], 'https://example.com/image.png');
+    });
+
+    test('paragraph + image with double \n', () {
+      const markdown = '''This is the first line
+
+![image](https://example.com/image.png)''';
+      final document = markdownToDocument(markdown);
+      final nodes = document.root.children;
+      expect(nodes.length, 2);
+      expect(nodes[0].delta?.toPlainText(), 'This is the first line');
+      expect(nodes[1].attributes['url'], 'https://example.com/image.png');
+    });
+
+    test('paragraph + image without \n', () {
+      const markdown =
+          '''This is the first line![image](https://example.com/image.png)''';
+      final document = markdownToDocument(markdown);
+      final nodes = document.root.children;
+      expect(nodes.length, 2);
+      expect(nodes[0].delta?.toPlainText(), 'This is the first line');
+      expect(nodes[1].attributes['url'], 'https://example.com/image.png');
     });
   });
 }

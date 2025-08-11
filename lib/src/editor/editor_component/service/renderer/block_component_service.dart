@@ -12,6 +12,11 @@ typedef BlockActionBuilder = Widget Function(
   BlockComponentActionState state,
 );
 
+typedef BlockActionTrailingBuilder = Widget Function(
+  BlockComponentContext blockComponentContext,
+  BlockComponentActionState state,
+);
+
 typedef BlockComponentValidate = bool Function(Node node);
 
 abstract class BlockComponentActionState {
@@ -36,6 +41,9 @@ abstract class BlockComponentBuilder with BlockComponentSelectable {
   bool Function(Node node) showActions = (_) => false;
 
   BlockActionBuilder actionBuilder = (_, __) => const SizedBox.shrink();
+
+  BlockActionTrailingBuilder actionTrailingBuilder =
+      (_, __) => const SizedBox.shrink();
 
   BlockComponentConfiguration configuration =
       const BlockComponentConfiguration();
@@ -95,6 +103,7 @@ abstract class BlockComponentRendererService {
     Node node, {
     Widget? header,
     Widget? footer,
+    BlockComponentWrapper? wrapper,
   });
 
   List<Widget> buildList(
@@ -122,12 +131,14 @@ class BlockComponentRenderer extends BlockComponentRendererService {
     Node node, {
     Widget? header,
     Widget? footer,
+    BlockComponentWrapper? wrapper,
   }) {
     final blockComponentContext = BlockComponentContext(
       buildContext,
       node,
       header: header,
       footer: footer,
+      wrapper: wrapper,
     );
     final errorBuilder = _builders[errorBlockComponentBuilderKey];
     final builder = blockComponentBuilder(node.type);

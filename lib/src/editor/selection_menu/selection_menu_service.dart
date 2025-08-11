@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 
 abstract class SelectionMenuService {
   Offset get offset;
+
   Alignment get alignment;
+
   SelectionMenuStyle get style;
 
   Future<void> show();
+
   void dismiss();
 
   (double? left, double? top, double? right, double? bottom) getPosition();
@@ -20,16 +23,23 @@ class SelectionMenu extends SelectionMenuService {
     required this.editorState,
     required this.selectionMenuItems,
     this.deleteSlashByDefault = true,
+    this.deleteKeywordsByDefault = false,
     this.style = SelectionMenuStyle.light,
     this.itemCountFilter = 0,
     this.singleColumn = false,
+    this.menuHeight = 300,
+    this.menuWidth = 300,
   });
 
   final BuildContext context;
   final EditorState editorState;
   final List<SelectionMenuItem> selectionMenuItems;
   final bool deleteSlashByDefault;
+  final bool deleteKeywordsByDefault;
   final bool singleColumn;
+  final double menuHeight;
+  final double menuWidth;
+
   @override
   final SelectionMenuStyle style;
 
@@ -110,6 +120,7 @@ class SelectionMenu extends SelectionMenuService {
                       items: selectionMenuItems
                         ..forEach((element) {
                           element.deleteSlash = deleteSlashByDefault;
+                          element.deleteKeywords = deleteKeywordsByDefault;
                           element.onSelected = () {
                             dismiss();
                           };
@@ -200,7 +211,6 @@ class SelectionMenu extends SelectionMenuService {
     // Workaround: We can customize the padding through the [EditorStyle],
     // but the coordinates of overlay are not properly converted currently.
     // Just subtract the padding here as a result.
-    const menuHeight = 200.0;
     const menuOffset = Offset(0, 10);
     final editorOffset =
         editorState.renderBox?.localToGlobal(Offset.zero) ?? Offset.zero;
@@ -224,12 +234,18 @@ class SelectionMenu extends SelectionMenuService {
 
       _offset = Offset(
         offset.dx,
-        MediaQuery.of(context).size.height - offset.dy,
+        editorHeight + editorOffset.dy - offset.dy,
       );
     }
 
-    // show on left
-    if (_offset.dx - editorOffset.dx > editorWidth / 2) {
+    // show on right
+    if (_offset.dx + menuWidth < editorOffset.dx + editorWidth) {
+      _offset = Offset(
+        _offset.dx,
+        _offset.dy,
+      );
+    } else if (offset.dx - editorOffset.dx > menuWidth) {
+      // show on left
       _alignment = _alignment == Alignment.topLeft
           ? Alignment.topRight
           : Alignment.bottomRight;

@@ -22,6 +22,12 @@ typedef AppFlowyAutoCompleteTextProvider = String? Function(
   TextSpan? textSpan,
 );
 
+typedef AppFlowyTextSpanOverlayBuilder = List<Widget> Function(
+  BuildContext context,
+  Node node,
+  SelectableMixin delegate,
+);
+
 class AppFlowyRichText extends StatefulWidget {
   const AppFlowyRichText({
     super.key,
@@ -33,6 +39,7 @@ class AppFlowyRichText extends StatefulWidget {
     this.placeholderTextSpanDecorator,
     this.textDirection = TextDirection.ltr,
     this.textSpanDecoratorForCustomAttributes,
+    this.textSpanOverlayBuilder,
     this.textAlign,
     this.cursorColor = const Color.fromARGB(255, 0, 0, 0),
     this.selectionColor = const Color.fromARGB(53, 111, 201, 231),
@@ -81,6 +88,12 @@ class AppFlowyRichText extends StatefulWidget {
   /// You can use this to customize the text span for custom attributes
   ///   or override the existing one.
   final TextSpanDecoratorForAttribute? textSpanDecoratorForCustomAttributes;
+
+  /// customize the text span overlay builder
+  ///
+  /// You can use this to customize the text span overlay, for example, a hover menu in linked text.
+  final AppFlowyTextSpanOverlayBuilder? textSpanOverlayBuilder;
+
   final TextDirection textDirection;
 
   final Color cursorColor;
@@ -108,25 +121,32 @@ class _AppFlowyRichTextState extends State<AppFlowyRichText>
   AppFlowyAutoCompleteTextProvider? get autoCompleteTextProvider =>
       widget.autoCompleteTextProvider ??
       widget.editorState.autoCompleteTextProvider;
+
   bool get enableAutoComplete =>
       widget.editorState.enableAutoComplete && autoCompleteTextProvider != null;
 
   TextStyleConfiguration get textStyleConfiguration =>
       widget.editorState.editorStyle.textStyleConfiguration;
 
+  AppFlowyTextSpanOverlayBuilder? get textSpanOverlayBuilder =>
+      widget.textSpanOverlayBuilder ??
+      widget.editorState.editorStyle.textSpanOverlayBuilder;
+
+  @override
+  void initState() {
+    super.initState();
+    confirmContextEnabled();
+  }
+
   @override
   Widget build(BuildContext context) {
-    Widget child = _buildRichText(context);
-
-    final delta = widget.node.delta;
-    if (delta == null || delta.isEmpty) {
-      child = Stack(
-        children: [
-          _buildPlaceholderText(context),
-          _buildRichText(context),
-        ],
-      );
-    }
+    Widget child = Stack(
+      children: [
+        _buildPlaceholderText(context),
+        _buildRichText(context),
+        ..._buildRichTextOverlay(context),
+      ],
+    );
 
     if (enableAutoComplete) {
       final autoCompleteText = _buildAutoCompleteRichText();
@@ -184,27 +204,37 @@ class _AppFlowyRichTextState extends State<AppFlowyRichText>
     }
 
     final textPosition = TextPosition(offset: position.offset);
-    var cursorHeight = _renderParagraph?.getFullHeightForCaret(textPosition);
-    var cursorOffset =
-        _renderParagraph?.getOffsetForCaret(textPosition, Rect.zero) ??
+    double? placeholderCursorHeight =
+        _placeholderRenderParagraph?.getFullHeightForCaret(textPosition);
+    Offset? placeholderCursorOffset =
+        _placeholderRenderParagraph?.getOffsetForCaret(
+              textPosition,
+              Rect.zero,
+            ) ??
             Offset.zero;
-    if (delta?.isEmpty == true || cursorHeight == null || cursorHeight == 0) {
-      cursorHeight =
-          _placeholderRenderParagraph?.getFullHeightForCaret(textPosition);
-      cursorOffset = _placeholderRenderParagraph?.getOffsetForCaret(
-            textPosition,
-            Rect.zero,
-          ) ??
-          Offset.zero;
-      if (textDirection() == TextDirection.rtl) {
-        if (widget.placeholderText.trim().isNotEmpty) {
-          cursorOffset = cursorOffset.translate(
-            _placeholderRenderParagraph?.size.width ?? 0,
-            0,
-          );
-        }
+    if (textDirection() == TextDirection.rtl) {
+      if (widget.placeholderText.trim().isNotEmpty) {
+        placeholderCursorOffset = placeholderCursorOffset.translate(
+          _placeholderRenderParagraph?.size.width ?? 0,
+          0,
+        );
       }
     }
+
+    double? cursorHeight =
+        _renderParagraph?.getFullHeightForCaret(textPosition);
+    Offset? cursorOffset =
+        _renderParagraph?.getOffsetForCaret(textPosition, Rect.zero) ??
+            Offset.zero;
+
+    if (placeholderCursorHeight != null) {
+      cursorHeight = max(cursorHeight ?? 0, placeholderCursorHeight);
+    }
+
+    if (delta?.isEmpty == true) {
+      cursorOffset = placeholderCursorOffset;
+    }
+
     if (widget.cursorHeight != null && cursorHeight != null) {
       cursorOffset = Offset(
         cursorOffset.dx,
@@ -288,12 +318,28 @@ class _AppFlowyRichTextState extends State<AppFlowyRichText>
         )
         .map((box) => box.toRect())
         .toList(growable: false);
-
     if (rects == null || rects.isEmpty) {
-      // If the rich text widget does not contain any text,
-      // there will be no selection boxes,
-      // so we need to return to the default selection.
-      return [Rect.fromLTWH(0, 0, 0, paragraph?.size.height ?? 0)];
+      /// If the rich text widget does not contain any text,
+      /// there will be no selection boxes,
+      /// so we need to return to the default selection.
+      Offset position = Offset.zero;
+      double height = paragraph?.size.height ?? 0.0;
+      double width = 0;
+      if (!selection.isCollapsed) {
+        /// while selecting for an empty character, return a selection area
+        /// with width of 2
+        final textPosition = TextPosition(offset: textSelection.baseOffset);
+        position = paragraph?.getOffsetForCaret(
+              textPosition,
+              Rect.zero,
+            ) ??
+            position;
+        height = paragraph?.getFullHeightForCaret(textPosition) ?? height;
+        width = 2;
+      }
+      return [
+        Rect.fromLTWH(position.dx, position.dy, width, height),
+      ];
     }
     return rects;
   }
@@ -340,6 +386,12 @@ class _AppFlowyRichTextState extends State<AppFlowyRichText>
       textSpan = widget.placeholderTextSpanDecorator!(textSpan);
     }
     textSpan = adjustTextSpan(textSpan);
+    final delta = widget.node.delta;
+    if (delta != null && delta.isNotEmpty) {
+      textSpan = textSpan.updateTextStyle(
+        const TextStyle(color: Colors.transparent),
+      );
+    }
     return RichText(
       key: placeholderTextKey,
       textHeightBehavior: TextHeightBehavior(
@@ -351,8 +403,10 @@ class _AppFlowyRichTextState extends State<AppFlowyRichText>
       ),
       text: textSpan,
       textDirection: textDirection(),
-      textScaler:
-          TextScaler.linear(widget.editorState.editorStyle.textScaleFactor),
+      textScaler: TextScaler.linear(
+        widget.editorState.editorStyle.textScaleFactor,
+      ),
+      overflow: TextOverflow.ellipsis,
     );
   }
 
@@ -378,6 +432,26 @@ class _AppFlowyRichTextState extends State<AppFlowyRichText>
       textScaler:
           TextScaler.linear(widget.editorState.editorStyle.textScaleFactor),
     );
+  }
+
+  List<Widget> _buildRichTextOverlay(BuildContext context) {
+    if (textKey.currentContext == null) return [];
+    return textSpanOverlayBuilder?.call(
+          context,
+          widget.node,
+          this,
+        ) ??
+        [];
+  }
+
+  void confirmContextEnabled() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && textKey.currentContext == null) {
+        confirmContextEnabled();
+      } else if (mounted && textKey.currentContext != null) {
+        setState(() {});
+      }
+    });
   }
 
   Widget _buildAutoCompleteRichText() {

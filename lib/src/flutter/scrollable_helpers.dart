@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// coverage:ignore-file
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -141,7 +143,7 @@ class ScrollableDetails {
 ///
 /// The scroll velocity is controlled by the [velocityScalar]:
 ///
-/// velocity = <distance of overscroll> * [velocityScalar].
+/// velocity = &lt;distance of overscroll&gt; * [velocityScalar].
 class EdgeDraggingAutoScroller {
   /// Creates a auto scroller that scrolls the [scrollable].
   EdgeDraggingAutoScroller(
@@ -166,7 +168,7 @@ class EdgeDraggingAutoScroller {
   /// The velocity scalar per pixel over scroll.
   ///
   /// It represents how the velocity scale with the over scroll distance. The
-  /// auto-scroll velocity = <distance of overscroll> * velocityScalar.
+  /// auto-scroll velocity = &lt;distance of overscroll&gt; * velocityScalar.
   final double velocityScalar;
 
   late Rect _dragTargetRelatedToScrollOrigin;

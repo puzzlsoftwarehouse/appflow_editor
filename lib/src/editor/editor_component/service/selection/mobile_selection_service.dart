@@ -99,6 +99,10 @@ class _MobileSelectionServiceWidgetState
     listen: false,
   );
 
+  bool isCollapsedHandleVisible = false;
+
+  Timer? collapsedHandleTimer;
+
   @override
   void initState() {
     super.initState();
@@ -113,6 +117,7 @@ class _MobileSelectionServiceWidgetState
     WidgetsBinding.instance.removeObserver(this);
     selectionNotifierAfterLayout.dispose();
     editorState.selectionNotifier.removeListener(_updateSelection);
+    collapsedHandleTimer?.cancel();
 
     super.dispose();
   }
@@ -178,13 +183,15 @@ class _MobileSelectionServiceWidgetState
       valueListenable: selectionNotifierAfterLayout,
       builder: (context, selection, _) {
         if (selection == null || !selection.isCollapsed) {
+          isCollapsedHandleVisible = false;
           return const SizedBox.shrink();
         }
 
-        // on iOS, the drag handle should be updated when typing text.
+        // on Android, the drag handle should be updated when typing text.
         if (PlatformExtension.isAndroid &&
             editorState.selectionUpdateReason !=
                 SelectionUpdateReason.uiEvent) {
+          isCollapsedHandleVisible = false;
           return const SizedBox.shrink();
         }
 
@@ -193,6 +200,7 @@ class _MobileSelectionServiceWidgetState
               MobileSelectionDragMode.leftSelectionHandle,
               MobileSelectionDragMode.rightSelectionHandle,
             ].contains(dragMode)) {
+          isCollapsedHandleVisible = false;
           return const SizedBox.shrink();
         }
 
@@ -206,8 +214,13 @@ class _MobileSelectionServiceWidgetState
         );
 
         if (node == null || rect == null) {
+          isCollapsedHandleVisible = false;
           return const SizedBox.shrink();
         }
+
+        isCollapsedHandleVisible = true;
+
+        _clearCollapsedHandleOnAndroid();
 
         final editorStyle = editorState.editorStyle;
         return MobileCollapsedHandle(
@@ -218,6 +231,14 @@ class _MobileSelectionServiceWidgetState
           handleBallWidth: editorStyle.mobileDragHandleBallSize.width,
           enableHapticFeedbackOnAndroid:
               editorStyle.enableHapticFeedbackOnAndroid,
+          onDragging: (isDragging) {
+            if (isDragging) {
+              collapsedHandleTimer?.cancel();
+              collapsedHandleTimer = null;
+            } else {
+              _clearCollapsedHandleOnAndroid();
+            }
+          },
         );
       },
     );
@@ -301,6 +322,25 @@ class _MobileSelectionServiceWidgetState
     );
   }
 
+  // The collapsed handle will be dismissed when no user interaction is detected.
+  void _clearCollapsedHandleOnAndroid() {
+    if (!PlatformExtension.isAndroid) {
+      return;
+    }
+    collapsedHandleTimer?.cancel();
+    collapsedHandleTimer = Timer(
+      editorState.editorStyle.autoDismissCollapsedHandleDuration,
+      () {
+        if (isCollapsedHandleVisible) {
+          editorState.updateSelectionWithReason(
+            editorState.selection,
+            reason: SelectionUpdateReason.transaction,
+          );
+        }
+      },
+    );
+  }
+
   @override
   void updateSelection(Selection? selection) {
     if (currentSelection.value == selection) {
@@ -321,6 +361,7 @@ class _MobileSelectionServiceWidgetState
     editorState.updateSelectionWithReason(
       selection,
       reason: SelectionUpdateReason.uiEvent,
+      customSelectionType: SelectionType.inline,
       extraInfo: {
         selectionDragModeKey: dragMode,
         selectionExtraInfoDoNotAttachTextService:
@@ -392,7 +433,7 @@ class _MobileSelectionServiceWidgetState
     final selection = editorState.selection;
 
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-      selectionNotifierAfterLayout.value = selection;
+      if (mounted) selectionNotifierAfterLayout.value = selection;
     });
 
     if (currentSelection.value != selection) {
@@ -525,6 +566,7 @@ class _MobileSelectionServiceWidgetState
     editorState.updateSelectionWithReason(
       selection,
       reason: SelectionUpdateReason.uiEvent,
+      customSelectionType: SelectionType.inline,
       extraInfo: null,
     );
   }
@@ -598,6 +640,7 @@ class _MobileSelectionServiceWidgetState
     editorState.updateSelectionWithReason(
       editorState.selection,
       reason: SelectionUpdateReason.uiEvent,
+      customSelectionType: SelectionType.inline,
       extraInfo: {
         selectionExtraInfoDoNotAttachTextService: false,
       },
@@ -618,6 +661,7 @@ class _MobileSelectionServiceWidgetState
     editorState.updateSelectionWithReason(
       Selection.collapsed(position),
       reason: SelectionUpdateReason.uiEvent,
+      customSelectionType: SelectionType.inline,
       extraInfo: null,
     );
   }
@@ -837,10 +881,18 @@ class _MobileSelectionServiceWidgetState
   }
 
   @override
-  void renderDropTargetForOffset(Offset offset, {DragAreaBuilder? builder}) {
+  void renderDropTargetForOffset(
+    Offset offset, {
+    DragAreaBuilder? builder,
+    DragTargetNodeInterceptor? interceptor,
+  }) {
     // Do nothing on mobile
   }
 
   @override
-  DropTargetRenderData? getDropTargetRenderData(Offset offset) => null;
+  DropTargetRenderData? getDropTargetRenderData(
+    Offset offset, {
+    DragTargetNodeInterceptor? interceptor,
+  }) =>
+      null;
 }

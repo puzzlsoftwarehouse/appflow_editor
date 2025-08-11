@@ -127,6 +127,8 @@ class DragToReorderAction extends StatefulWidget {
   State<DragToReorderAction> createState() => _DragToReorderActionState();
 }
 
+const _interceptorKey = 'drag_to_reorder_interceptor';
+
 class _DragToReorderActionState extends State<DragToReorderAction> {
   late final Node node;
   late final BlockComponentContext blockComponentContext;
@@ -134,9 +136,23 @@ class _DragToReorderActionState extends State<DragToReorderAction> {
 
   Offset? globalPosition;
 
+  late final gestureInterceptor = SelectionGestureInterceptor(
+    key: _interceptorKey,
+    canTap: (details) => !_isTapInBounds(details.globalPosition),
+  );
+
+  // the selection will be cleared when tap the option button
+  // so we need to restore the selection after tap the option button
+  Selection? beforeSelection;
+  RenderBox? get renderBox => context.findRenderObject() as RenderBox?;
+
   @override
   void initState() {
     super.initState();
+
+    editorState.service.selectionService.registerGestureInterceptor(
+      gestureInterceptor,
+    );
 
     // copy the node to avoid the node in document being updated
     node = widget.blockComponentContext.node.copyWith();
@@ -144,6 +160,15 @@ class _DragToReorderActionState extends State<DragToReorderAction> {
       widget.blockComponentContext.buildContext,
       node,
     );
+  }
+
+  @override
+  void dispose() {
+    editorState.service.selectionService.unregisterGestureInterceptor(
+      _interceptorKey,
+    );
+
+    super.dispose();
   }
 
   @override
@@ -192,15 +217,57 @@ class _DragToReorderActionState extends State<DragToReorderAction> {
             globalPosition!,
           );
         },
-        child: const MouseRegion(
-          cursor: SystemMouseCursors.grab,
-          child: Icon(
-            Icons.drag_indicator_rounded,
-            size: 18,
+        child: GestureDetector(
+          onTap: _onTap,
+          behavior: HitTestBehavior.translucent,
+          child: const MouseRegion(
+            cursor: SystemMouseCursors.grab,
+            child: Icon(
+              Icons.drag_indicator_rounded,
+              size: 18,
+            ),
           ),
         ),
       ),
     );
+  }
+
+  void _onTap() {
+    final path = widget.blockComponentContext.node.path;
+
+    debugPrint('onTap, path($path), beforeSelection($beforeSelection)');
+
+    if (beforeSelection != null && path.inSelection(beforeSelection)) {
+      debugPrint('onTap(1), set selection to block');
+      editorState.updateSelectionWithReason(
+        beforeSelection,
+        customSelectionType: SelectionType.block,
+      );
+    } else {
+      debugPrint('onTap(2), set selection to block');
+      final selection = Selection.collapsed(
+        Position(path: path),
+      );
+      editorState.updateSelectionWithReason(
+        selection,
+        customSelectionType: SelectionType.block,
+      );
+    }
+  }
+
+  bool _isTapInBounds(Offset offset) {
+    if (renderBox == null) {
+      return false;
+    }
+
+    final localPosition = renderBox!.globalToLocal(offset);
+    final result = renderBox!.paintBounds.contains(localPosition);
+    if (result) {
+      beforeSelection = editorState.selection;
+    } else {
+      beforeSelection = null;
+    }
+    return result;
   }
 
   Future<void> _moveNodeToNewPosition(
@@ -220,29 +287,49 @@ class _DragToReorderActionState extends State<DragToReorderAction> {
     final (verticalPosition, horizontalPosition, _) = position;
     Path newPath = targetNode.path;
 
-    // Determine the new path based on drop position
-    // For VerticalPosition.top, we keep the target node's path
-    if (verticalPosition == VerticalPosition.bottom) {
-      newPath = horizontalPosition == HorizontalPosition.left
-          ? newPath.next // Insert after target node
-          : newPath.child(0); // Insert as first child of target node
-    }
-
-    // Check if the drop should be ignored
-    if (_shouldIgnoreDrop(node, newPath)) {
-      debugPrint(
-        'Drop ignored: node($node, ${node.path}), path($acceptedPath)',
-      );
-      return;
-    }
-
     final realNode = widget.blockComponentContext.node;
     debugPrint('Moving node($realNode, ${realNode.path}) to path($newPath)');
 
-    // Perform the node move operation
-    final transaction = editorState.transaction;
-    transaction.moveNode(newPath, realNode);
-    await editorState.apply(transaction);
+    // if the horizontal position is right, we need to create a column block
+    if (horizontalPosition == HorizontalPosition.right) {
+      final node = columnsNode(
+        children: [
+          columnNode(
+            children: [targetNode.deepCopy()],
+          ),
+          columnNode(
+            children: [realNode.deepCopy()],
+          ),
+        ],
+      );
+
+      final transaction = editorState.transaction;
+      transaction.insertNode(newPath, node);
+      transaction.deleteNode(targetNode);
+      transaction.deleteNode(realNode);
+      await editorState.apply(transaction);
+    } else {
+      // Determine the new path based on drop position
+      // For VerticalPosition.top, we keep the target node's path
+      if (verticalPosition == VerticalPosition.bottom) {
+        newPath = horizontalPosition == HorizontalPosition.left
+            ? newPath.next // Insert after target node
+            : newPath.child(0); // Insert as first child of target node
+      }
+
+      // Check if the drop should be ignored
+      if (_shouldIgnoreDrop(node, newPath)) {
+        debugPrint(
+          'Drop ignored: node($node, ${node.path}), path($acceptedPath)',
+        );
+        return;
+      }
+
+      // Perform the node move operation
+      final transaction = editorState.transaction;
+      transaction.moveNode(newPath, realNode);
+      await editorState.apply(transaction);
+    }
   }
 
   Widget _buildFeedback() {
@@ -320,7 +407,7 @@ Widget _buildDropArea(
     color: Colors.red,
   );
 
-  if (horizontalPosition == HorizontalPosition.right) {
+  if (horizontalPosition == HorizontalPosition.center) {
     const breakWidth = 22.0;
     const padding = 8.0;
     child = Row(
@@ -338,6 +425,16 @@ Widget _buildDropArea(
           color: Colors.red,
         ),
       ],
+    );
+  } else if (horizontalPosition == HorizontalPosition.right) {
+    return Positioned(
+      top: globalBlockRect.top,
+      height: globalBlockRect.height,
+      left: globalBlockRect.right - 2,
+      child: Container(
+        width: 2,
+        color: Colors.red,
+      ),
     );
   }
 
@@ -385,9 +482,10 @@ Widget _buildDropArea(
   // Horizontal position
   if (dragOffset.dx < globalBlockRect.left + 44) {
     horizontalPosition = HorizontalPosition.left;
-  } else {
-    // ignore the middle here, it's not used in this example
+  } else if (dragOffset.dx > globalBlockRect.right / 3.0 * 2.0) {
     horizontalPosition = HorizontalPosition.right;
+  } else {
+    horizontalPosition = HorizontalPosition.center;
   }
 
   // Vertical position

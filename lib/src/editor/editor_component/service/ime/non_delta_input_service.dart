@@ -30,7 +30,6 @@ class NonDeltaTextInputService extends TextInputService with TextInputClient {
   AutofillScope? get currentAutofillScope => throw UnimplementedError();
 
   @override
-  @override
   TextEditingValue? get currentTextEditingValue => _currentTextEditingValue;
 
   TextEditingValue? _currentTextEditingValue;
@@ -47,21 +46,22 @@ class NonDeltaTextInputService extends TextInputService with TextInputClient {
   bool _isFloatingCursorVisible = false;
 
   @override
-  Future<void> apply(List<TextEditingDelta> deltas) async {
+  Future<bool> apply(List<TextEditingDelta> deltas) async {
     final formattedDeltas = deltas.map((e) => e.format()).toList();
+    bool willApply = true;
     for (final delta in formattedDeltas) {
       _updateComposing(delta);
-
       if (delta is TextEditingDeltaInsertion) {
-        await onInsert(delta);
+        if (!(await onInsert(delta))) willApply = false;
       } else if (delta is TextEditingDeltaDeletion) {
-        await onDelete(delta);
+        if (!(await onDelete(delta))) willApply = false;
       } else if (delta is TextEditingDeltaReplacement) {
-        await onReplace(delta);
+        if (!(await onReplace(delta))) willApply = false;
       } else if (delta is TextEditingDeltaNonTextUpdate) {
-        await onNonTextUpdate(delta);
+        if (!(await onNonTextUpdate(delta))) willApply = false;
       }
     }
+    return willApply;
   }
 
   @override
@@ -120,9 +120,14 @@ class NonDeltaTextInputService extends TextInputService with TextInputClient {
       PlatformExtension.isMobile
           ? const Duration(milliseconds: 10)
           : Duration.zero,
-      () {
+      () async {
+        final oldValue = _currentTextEditingValue?.copyWith();
         currentTextEditingValue = value;
-        apply(deltas);
+        final willApply = await apply(deltas);
+        if (!willApply) {
+          currentTextEditingValue = oldValue;
+          _textInputConnection?.setEditingState(oldValue!);
+        }
       },
     );
   }
@@ -142,6 +147,11 @@ class NonDeltaTextInputService extends TextInputService with TextInputClient {
       ?..setEditableSizeAndTransform(size, transform)
       ..setCaretRect(rect)
       ..setComposingRect(rect.translate(0, rect.height));
+  }
+
+  @override
+  void clearComposingTextRange() {
+    composingTextRange = TextRange.empty;
   }
 
   @override
@@ -215,6 +225,11 @@ class NonDeltaTextInputService extends TextInputService with TextInputClient {
         baseOffset: selection.baseOffset - 1,
         extentOffset: selection.extentOffset - 1,
       );
+
+      if (!deleteRange.isValid) {
+        return;
+      }
+
       // valid the result
       onDelete(
         TextEditingDeltaDeletion(
@@ -278,7 +293,14 @@ extension on TextEditingValue {
   TextEditingValue format() {
     final text = _whitespace + this.text;
     final selection = this.selection >> _len;
-    final composing = this.composing >> _len;
+
+    TextRange composing = this.composing >> _len;
+    final textLength = text.length;
+
+    // check invalid composing
+    if (composing.start > textLength || composing.end > textLength) {
+      composing = TextRange.empty;
+    }
 
     return TextEditingValue(
       text: text,
@@ -311,14 +333,18 @@ extension on TextEditingDelta {
   }
 }
 
-extension on TextEditingDeltaInsertion {
-  TextEditingDeltaInsertion format() => TextEditingDeltaInsertion(
-        oldText: oldText << _len,
-        textInserted: textInserted,
-        insertionOffset: insertionOffset - _len,
-        selection: selection << _len,
-        composing: composing << _len,
-      );
+extension TextEditingDeltaInsertionExtension on TextEditingDeltaInsertion {
+  TextEditingDeltaInsertion format() {
+    final startWithSpace = oldText.startsWith(_whitespace);
+    return TextEditingDeltaInsertion(
+      oldText: startWithSpace ? oldText << _len : oldText,
+      textInserted: textInserted,
+      insertionOffset:
+          startWithSpace ? insertionOffset - _len : insertionOffset,
+      selection: startWithSpace ? selection << _len : selection,
+      composing: startWithSpace ? composing << _len : composing,
+    );
+  }
 }
 
 extension on TextEditingDeltaDeletion {

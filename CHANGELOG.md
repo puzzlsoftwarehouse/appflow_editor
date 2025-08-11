@@ -1,3 +1,108 @@
+## 5.2.0
+* feat: support customizing link button by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1048
+* feat: add flag to disable keyboard shortcuts by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1049
+* fix: scrollController disposed twice by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1050
+* feat: add trailing builder in block menu by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1052
+* chore: add ScrollViewScrolledListener to EditorState by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1053
+* feat: support customizing scroll edge offset by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1055
+* fix: menu position error by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1054
+* chore: remove assertion in scrollable helper by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1056
+* fix: interceptor not working with continuous deleting by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1057
+* feat: enable set floatingToolbarHeight outside by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1058
+* fix: auto scroll issue by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1062
+* fix: recreate FloatingToolbarWidget after Brightness was changed by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1063
+* fix: assertion in editor list example by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1064
+* fix: unable to undo/redo when the selection is null by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1067
+* chore: enable pass custom color from outside by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1066
+* chore: mark node id as non final by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1070
+* fix: parse table width/height error if the value is int by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1072
+* feat: add document rules by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1071
+* fix: enable dismiss floating toolbar from outside by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1073
+* fix: prevent lock after backspacing on select all by @saif-ellafi in https://github.com/AppFlowy-IO/appflowy-editor/pull/1076
+* fix: rename the descroption of turning into heading shortcuts by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1075
+* fix: shift+click not working if beginning is out of the window by @richardshiue in https://github.com/AppFlowy-IO/appflowy-editor/pull/1079
+* fix: add isMetricsChanged to FloatingToolbarBuilder by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1081
+* fix: slash menu sometimes incorrectly show on left side by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1082
+* fix: backspace select all by @Xazin in https://github.com/AppFlowy-IO/appflowy-editor/pull/1077
+* fix: do not recreate the toolbar when the selection not changed by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1086
+* feat: add RegExp to CharacterShortcutEvent by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1088
+* feat: add linkbreak in markdown decoder by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1090
+* fix: slash not recogized on mobile by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1096
+
+## 5.1.0
+
+- feat: upgrade to Flutter 3.27.0 by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1020
+- fix: the cursor constantly blinking on Android by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1023
+- fix: RTL languages display incorrectly with soft line break(#7153) by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1026
+- fix: find getting focus unexpectedly by @richardshiue in https://github.com/AppFlowy-IO/appflowy-editor/pull/1032
+- feat: disable floating toolbar when editable is false by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1034
+- feat: allow coloring image menu by @saif-ellafi in https://github.com/AppFlowy-IO/appflowy-editor/pull/1014
+- fix: editor will crash if deleting all nodes by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1037
+- feat: add simple columns block in editor by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1038
+- feat: add interceptor into selection service to custom the drag target node by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1044
+- fix: support custom non-standard urls by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1042
+- fix: check for has client before jumping in shrinkwrapped editor by @richardshiue in https://github.com/AppFlowy-IO/appflowy-editor/pull/1045
+- fix: add default selection area for empty character by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1043
+
+## 5.0.0
+
+- fix: export pdf set font not work by @Linij in https://github.com/AppFlowy-IO/appflowy-editor/pull/923
+- fix: \_deleteBackward deleteRange start must > 0 by @Linij in https://github.com/AppFlowy-IO/appflowy-editor/pull/928
+- chore: update device_info_plus to 11.0.0 by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/931
+- fix: html decoder ignores h4-h6 tags by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/932
+- fix: markdown parser doesn't recognize softline breaks by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/933
+- feat: select multiple lines with block selection style by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/936
+- feat: custom slice function by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/935
+- fix: use retain instead of insert/delete for same attr by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/937
+- fix: update migration guide by @emmanuel-ferdman in https://github.com/AppFlowy-IO/appflowy-editor/pull/929
+- fix: replace texts assertion by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/938
+- fix: links starting with 0 index lose href attribute after formating by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/947
+- fix: replace texts may result in incorrect afterSelection by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/952
+- fix: cancel block selection when tapping the editor on mobile by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/956
+- fix: highlight search match not scrolling document to reveal said match by @richardshiue in https://github.com/AppFlowy-IO/appflowy-editor/pull/954
+- fix: cursor height is inconsistent when the font size is smaller than the default text size by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/958
+- feat: exclude padding when highlight heading block by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/960
+- fix: move cursor up / down error by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/961
+- fix: table resizing when rect not rendered by @Xazin in https://github.com/AppFlowy-IO/appflowy-editor/pull/967
+- fix: Searching command with / using in18 by @Ahad-patel in https://github.com/AppFlowy-IO/appflowy-editor/pull/966
+- fix: cut collapsed table cell won't crash the editor by @saif-ellafi in https://github.com/AppFlowy-IO/appflowy-editor/pull/963
+- fix: deleting the last table being the last node of the document, places an empty node to avoid the editor to crash by @saif-ellafi in https://github.com/AppFlowy-IO/appflowy-editor/pull/951
+- fix: cross blocks format not reflected on the float toolbar by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/971
+- feat: support in memory transaction update by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/972
+- fix: editor now detects phone number and launches it by @ARYPROGRAMMER in https://github.com/AppFlowy-IO/appflowy-editor/pull/970
+- fix: ignore backspace on empty table cells to avoid editor crash by @saif-ellafi in https://github.com/AppFlowy-IO/appflowy-editor/pull/964
+- fix: hide the floating toolbar if no content is visible by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/976
+- fix: skip repeated key events when the slash menu is opening by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/978
+- fix: creating document from slash menu leaves text behind by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/980
+- fix: closing a ')' braket to create a link will erase a text following it to the end of a paragraph by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/983
+- fix: underscore works should not be interpreted in inline-code by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/984
+- feat: support customize supported node types for slash menu by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/982
+- chore: refactor html test by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/987
+- fix: issue #6808 of appflowy by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/986
+- fix: cross column deletion in the table by @Linij in https://github.com/AppFlowy-IO/appflowy-editor/pull/934
+- feat: add command shortcut keys to convert text to title by @Ahad-patel in https://github.com/AppFlowy-IO/appflowy-editor/pull/921
+- Fixed menu closing on some devices by @g-apparence in https://github.com/AppFlowy-IO/appflowy-editor/pull/941
+- feat: reset to the default inline code format logic by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/988
+- feat: add `partialSliced` to support partial sliced attributes by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/989
+- fix: shift+enter should wrap the line in list by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/990
+- fix: assertion error in auto_expand_editor example by @mikefaust-jm in https://github.com/AppFlowy-IO/appflowy-editor/pull/991
+- fix: all the text pasted from google doc will be applied inline link by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/993
+- fix: sougou IME issue on Windows by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1000
+- feat: deep copy the node by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/995
+- fix: checking is mounted before updating the value of PropertyValueNotifier(#977) by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/997
+- feat: support text align in text-based blocks by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1002
+- feat: enable debug paint size for mobile drag handle by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1007
+- fix: out of text range while composing error by @kyungilcho in https://github.com/AppFlowy-IO/appflowy-editor/pull/979
+- fix: error format of TextEditingDeltaInsertion by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1004
+- feat: clear selection extra info before inserting a new line by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1009
+- fix: enter after emoji will create a softbreak on mobile by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1010
+- feat: expose text span for text style builder by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1011
+- fix: using space bar to move the cursor not working on Android by @asjqkkkk in https://github.com/AppFlowy-IO/appflowy-editor/pull/1013
+- fix: unable to parse image if the image is inside the paragraph by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1012
+- fix: use jump to when cursor not rendered by @richardshiue in https://github.com/AppFlowy-IO/appflowy-editor/pull/1015
+- fix: check if scroll service is disposed before scrolling by @richardshiue in https://github.com/AppFlowy-IO/appflowy-editor/pull/1016
+- feat: support copy with indentPadding by @LucasXu0 in https://github.com/AppFlowy-IO/appflowy-editor/pull/1018
+
 ## 4.0.0
 
 - feat: support dragging to reorder block by @LucasXu0 in [#887](https://github.com/AppFlowy-IO/appflowy-editor/pull/887)

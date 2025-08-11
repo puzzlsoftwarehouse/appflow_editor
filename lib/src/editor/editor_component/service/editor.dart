@@ -46,6 +46,8 @@ class AppFlowyEditor extends StatefulWidget {
     this.disableScrollService = false,
     this.disableAutoScroll = false,
     this.autoScrollEdgeOffset = appFlowyEditorAutoScrollEdgeOffset,
+    this.documentRules = const [],
+    this.blockWrapper,
   })  : blockComponentBuilders =
             blockComponentBuilders ?? standardBlockComponentBuilderMap,
         characterShortcutEvents =
@@ -142,8 +144,12 @@ class AppFlowyEditor extends StatefulWidget {
 
   /// Set the value to false to disable editing.
   ///
-  /// if false, the editor will only render the block components and
-  ///   without the editing, selecting, scrolling features.
+  /// If it's false, the transaction will be ignored in the apply function, and
+  ///   you can still use keyboard shortcuts to navigate the editor or select the text.
+  ///
+  /// If you want to disable the keyboard service, you can set [disableKeyboardService] to true.
+  /// If you want to disable the selection service, you can set [disableSelectionService] to true.
+  /// If you want to disable the scroll service, you can set [disableScrollService] to true.
   final bool editable;
 
   /// Set the value to true to focus the editor on the start of the document.
@@ -220,6 +226,15 @@ class AppFlowyEditor extends StatefulWidget {
   /// The edge offset of the auto scroll.
   ///
   final double autoScrollEdgeOffset;
+
+  /// The rules to apply to the document.
+  ///
+  final List<DocumentRule> documentRules;
+
+  /// Block wrapper
+  ///
+  /// Wrap the block component with a widget.
+  final BlockComponentWrapper? blockWrapper;
 
   @override
   State<AppFlowyEditor> createState() => _AppFlowyEditorState();
@@ -307,6 +322,7 @@ class _AppFlowyEditorState extends State<AppFlowyEditor> {
       editorState.document.root,
       header: widget.header,
       footer: widget.footer,
+      wrapper: widget.blockWrapper,
     );
 
     if (!widget.disableKeyboardService) {
@@ -368,6 +384,7 @@ class _AppFlowyEditorState extends State<AppFlowyEditor> {
     editorState.autoCompleteTextProvider = widget.autoCompleteTextProvider;
     editorState.disableAutoScroll = widget.disableAutoScroll;
     editorState.autoScrollEdgeOffset = widget.autoScrollEdgeOffset;
+    editorState.documentRules = widget.documentRules;
   }
 
   BlockComponentRendererService get _renderer => BlockComponentRenderer(
