@@ -26,7 +26,7 @@ extension PlatformExtension on Platform {
       return false;
     }
 
-    return Platform.isMacOS;
+    return Platform.operatingSystem == "macos";
   }
 
   /// Returns true if the operating system is Windows and running on Web platform.
@@ -34,7 +34,8 @@ extension PlatformExtension on Platform {
     if (!kIsWeb) {
       return false;
     }
-    return Platform.isWindows;
+
+    return Platform.operatingSystem == "windows";
   }
 
   /// Returns true if the operating system is Linux and running on Web platform.
@@ -42,7 +43,8 @@ extension PlatformExtension on Platform {
     if (!kIsWeb) {
       return false;
     }
-    return Platform.isLinux;
+
+    return Platform.operatingSystem == "linux";
   }
 
   static bool get isDesktopOrWeb =>
