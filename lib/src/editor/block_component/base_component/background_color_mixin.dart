@@ -12,6 +12,16 @@ BlockComponentBackgroundColorDecorator? blockComponentDecorator;
 mixin BlockComponentBackgroundColorMixin {
   Node get node;
 
+  Color? get backgroundColor {
+    final colorString =
+        node.attributes[blockComponentBackgroundColor] as String?;
+    if (colorString == null) {
+      return null;
+    }
+
+    return colorString.tryToColor();
+  }
+
   Decoration? get decoration {
     final colorString =
         node.attributes[blockComponentBackgroundColor] as String?;
