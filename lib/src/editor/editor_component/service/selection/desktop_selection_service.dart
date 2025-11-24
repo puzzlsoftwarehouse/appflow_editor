@@ -11,7 +11,7 @@ class DesktopSelectionServiceWidget extends StatefulWidget {
     super.key,
     this.cursorColor = const Color(0xFF00BCF0),
     this.selectionColor = const Color(0xFF00BCF0),
-    this.contextMenuItems,
+    this.contextMenuBuilder,
     required this.child,
     this.dropTargetStyle = const AppFlowyDropTargetStyle(),
   });
@@ -19,7 +19,7 @@ class DesktopSelectionServiceWidget extends StatefulWidget {
   final Widget child;
   final Color cursorColor;
   final Color selectionColor;
-  final List<List<ContextMenuItem>>? contextMenuItems;
+  final ContextMenuWidgetBuilder? contextMenuBuilder;
   final AppFlowyDropTargetStyle dropTargetStyle;
 
   @override
@@ -51,6 +51,9 @@ class _DesktopSelectionServiceWidgetState
 
   Position? _panStartPosition;
 
+  bool _isDraggingSelection = false;
+  Offset? _lastPanOffset;
+
   OverlayEntry? _dropTargetEntry;
 
   late EditorState editorState = Provider.of<EditorState>(
@@ -58,12 +61,15 @@ class _DesktopSelectionServiceWidgetState
     listen: false,
   );
 
+  _ContextMenuKeyboardInterceptor? _keyboardInterceptor;
+
   @override
   void initState() {
     super.initState();
 
     WidgetsBinding.instance.addObserver(this);
     editorState.selectionNotifier.addListener(_updateSelection);
+    editorState.addScrollViewScrolledListener(_handleAutoScrollWhileDragging);
   }
 
   @override
@@ -85,6 +91,9 @@ class _DesktopSelectionServiceWidgetState
     clearSelection();
     WidgetsBinding.instance.removeObserver(this);
     editorState.selectionNotifier.removeListener(_updateSelection);
+    editorState.removeScrollViewScrolledListener(
+      _handleAutoScrollWhileDragging,
+    );
     currentSelection.dispose();
     removeDropTarget();
     super.dispose();
@@ -116,6 +125,7 @@ class _DesktopSelectionServiceWidgetState
   @override
   void clearSelection() {
     // currentSelectedNodes = [];
+    _resetPanState();
     currentSelection.value = null;
 
     _clearSelection();
@@ -140,10 +150,43 @@ class _DesktopSelectionServiceWidgetState
       ..clear();
   }
 
+  void _resetPanState() {
+    _isDraggingSelection = false;
+    _panStartOffset = null;
+    _panStartScrollDy = null;
+    _panStartPosition = null;
+    _lastPanOffset = null;
+  }
+
   void _clearContextMenu() {
+    if (_contextMenuAreas.isEmpty) {
+      return;
+    }
+
     _contextMenuAreas
       ..forEach((overlay) => overlay.remove())
       ..clear();
+
+    if (_keyboardInterceptor != null) {
+      editorState.service.keyboardService
+          ?.unregisterInterceptor(_keyboardInterceptor!);
+      _keyboardInterceptor = null;
+    }
+
+    editorState.service.keyboardService?.enableShortcuts();
+    editorState.service.keyboardService?.enable();
+
+    final selection = editorState.selectionNotifier.value;
+    if (selection != null) {
+      editorState.updateSelectionWithReason(
+        null,
+        reason: SelectionUpdateReason.uiEvent,
+      );
+      editorState.updateSelectionWithReason(
+        selection,
+        reason: SelectionUpdateReason.uiEvent,
+      );
+    }
   }
 
   @override
@@ -270,15 +313,47 @@ class _DesktopSelectionServiceWidgetState
   }
 
   void _onSecondaryTapDown(TapDownDetails details) {
-    // if selection is null, or
-    // selection.isCollapsed and the selected node is TextNode.
-    // try to select the word.
+    final offset = details.globalPosition;
     final selection = editorState.selectionNotifier.value;
-    if (selection == null ||
-        (selection.isCollapsed == true &&
-            currentSelectedNodes.first.delta != null)) {
-      _onDoubleTapDown(details);
+    final node = getNodeInOffset(offset);
+    final selectable = node?.selectable;
+
+    if (selectable == null) {
+      clearSelection();
+      return;
     }
+
+    final position = selectable.getPositionInOffset(offset);
+    final Selection? newSelection;
+
+    // cases
+    // 1. if the selection is null, then select the current position as a collapsed selection
+    // 2. if the selection is collapsed, then keep it without changes
+    // 3. if the selection is not collapsed, then check if tap is within a selected node
+    // 4. if tap is within the selected nodes, then keep current selection
+    // 5. if tap is outside the selected nodes, then create a collapsed selection at tap point
+
+    if (selection == null) {
+      newSelection = Selection.collapsed(position);
+    } else if (selection.isCollapsed) {
+      newSelection = selection;
+    } else {
+      final selectedNodes = editorState.getNodesInSelection(selection);
+      final isTapInSelectedNode = selectedNodes.any((n) => n == node);
+
+      if (isTapInSelectedNode) {
+        newSelection = selection;
+      } else {
+        newSelection = Selection.collapsed(position);
+      }
+    }
+
+    editorState.updateSelectionWithReason(
+      newSelection,
+      extraInfo: {
+        selectionExtraInfoDisableToolbar: true,
+      },
+    );
 
     _showContextMenu(details);
   }
@@ -300,6 +375,13 @@ class _DesktopSelectionServiceWidgetState
     _panStartPosition = getNodeInOffset(_panStartOffset!)
         ?.selectable
         ?.getPositionInOffset(_panStartOffset!);
+    if (_panStartPosition == null) {
+      _resetPanState();
+      return;
+    }
+
+    _lastPanOffset = _panStartOffset;
+    _isDraggingSelection = true;
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
@@ -311,35 +393,19 @@ class _DesktopSelectionServiceWidgetState
       return;
     }
 
-    if (_panStartOffset == null ||
-        _panStartScrollDy == null ||
+    if (!_isDraggingSelection ||
+        _panStartOffset == null ||
         _panStartPosition == null) {
       return;
     }
 
-    final panEndOffset = details.globalPosition;
-    final dy = editorState.service.scrollService?.dy;
-    final panStartOffset = dy == null
-        ? _panStartOffset!
-        : _panStartOffset!.translate(0, _panStartScrollDy! - dy);
-
-    // this one maybe redundant.
-    final last = getNodeInOffset(panEndOffset)?.selectable;
-
-    // compute the selection in range.
-    if (last != null) {
-      final start = _panStartPosition!;
-      final end = last.getSelectionInRange(panStartOffset, panEndOffset).end;
-      final selection = Selection(start: start, end: end);
-
-      if (selection != currentSelection.value) {
-        updateSelection(selection);
-      }
-    }
+    _lastPanOffset = details.globalPosition;
+    _updateSelectionDuringDrag(_lastPanOffset!);
 
     editorState.service.scrollService?.startAutoScroll(
-      panEndOffset,
-      edgeOffset: 100,
+      _lastPanOffset!,
+      edgeOffset: 200,
+      duration: const Duration(milliseconds: 2),
     );
   }
 
@@ -351,9 +417,62 @@ class _DesktopSelectionServiceWidgetState
       return;
     }
 
-    _panStartPosition = null;
-
     editorState.service.scrollService?.stopAutoScroll();
+    _resetPanState();
+  }
+
+  void _updateSelectionDuringDrag(Offset panEndOffset) {
+    if (!_isDraggingSelection ||
+        _panStartPosition == null ||
+        _panStartOffset == null) {
+      return;
+    }
+
+    final double? currentDy = editorState.service.scrollService?.dy;
+    final Offset panStartOffset = currentDy == null || _panStartScrollDy == null
+        ? _panStartOffset!
+        : _panStartOffset!.translate(
+            0,
+            _panStartScrollDy! - currentDy,
+          );
+
+    final selectable = getNodeInOffset(panEndOffset)?.selectable;
+    if (selectable == null) {
+      return;
+    }
+
+    final Selection selection = Selection(
+      start: _panStartPosition!,
+      end: selectable
+          .getSelectionInRange(
+            panStartOffset,
+            panEndOffset,
+          )
+          .end,
+    );
+
+    if (selection != currentSelection.value) {
+      updateSelection(selection);
+    }
+  }
+
+  void _handleAutoScrollWhileDragging() {
+    if (!mounted || !_isDraggingSelection || _lastPanOffset == null) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !_isDraggingSelection ||
+          _lastPanOffset == null ||
+          _panStartOffset == null ||
+          _panStartPosition == null) {
+        return;
+      }
+
+      _updateSelectionDuringDrag(_lastPanOffset!);
+      editorState.autoScroller?.continueToAutoScroll();
+    });
   }
 
   void _updateSelection() {
@@ -366,8 +485,8 @@ class _DesktopSelectionServiceWidgetState
   void _showContextMenu(TapDownDetails details) {
     _clearContextMenu();
 
-    // Don't trigger the context menu if there are no items
-    if (widget.contextMenuItems == null || widget.contextMenuItems!.isEmpty) {
+    // Don't trigger the context menu if the builder is null
+    if (widget.contextMenuBuilder == null) {
       return;
     }
 
@@ -376,39 +495,45 @@ class _DesktopSelectionServiceWidgetState
       return;
     }
 
-    final isHitSelectionAreas = currentSelection.value?.isCollapsed == true ||
-        selectionRects.any((element) {
-          const threshold = 20;
-          final scaledArea = Rect.fromCenter(
-            center: element.center,
-            width: element.width + threshold,
-            height: element.height + threshold,
-          );
-          return scaledArea.contains(details.globalPosition);
-        });
-    if (!isHitSelectionAreas) {
-      return;
-    }
-
     // For now, only support the text node.
     if (!currentSelectedNodes.every((element) => element.delta != null)) {
       return;
     }
 
+    final mask = OverlayEntry(
+      builder: (_) => Listener(
+        onPointerDown: (_) => _clearContextMenu(),
+        child: Container(
+          color: Colors.transparent,
+        ),
+      ),
+    );
+    _contextMenuAreas.add(mask);
+    Overlay.of(context, rootOverlay: true).insert(mask);
+
     final baseOffset =
         editorState.renderBox?.localToGlobal(Offset.zero) ?? Offset.zero;
     final offset = details.localPosition + const Offset(10, 10) + baseOffset;
     final contextMenu = OverlayEntry(
-      builder: (context) => ContextMenu(
-        position: offset,
-        editorState: editorState,
-        items: widget.contextMenuItems!,
-        onPressed: () => _clearContextMenu(),
-      ),
+      builder: (_) =>
+          widget.contextMenuBuilder?.call(
+            context,
+            offset,
+            editorState,
+            () => _clearContextMenu(),
+          ) ??
+          SizedBox.shrink(),
     );
 
     _contextMenuAreas.add(contextMenu);
     Overlay.of(context, rootOverlay: true).insert(contextMenu);
+
+    _keyboardInterceptor = _ContextMenuKeyboardInterceptor();
+    editorState.service.keyboardService
+        ?.registerInterceptor(_keyboardInterceptor!);
+
+    editorState.service.keyboardService?.disableShortcuts();
+    editorState.service.keyboardService?.disable();
   }
 
   @override
@@ -548,5 +673,51 @@ class _DesktopSelectionServiceWidgetState
       dropPath: dropPath,
       cursorNode: node,
     );
+  }
+}
+
+class _ContextMenuKeyboardInterceptor
+    extends AppFlowyKeyboardServiceInterceptor {
+  @override
+  Future<bool> interceptInsert(
+    TextEditingDeltaInsertion insertion,
+    EditorState editorState,
+    List<CharacterShortcutEvent> characterShortcutEvents,
+  ) async {
+    return true;
+  }
+
+  @override
+  Future<bool> interceptDelete(
+    TextEditingDeltaDeletion deletion,
+    EditorState editorState,
+  ) async {
+    return true;
+  }
+
+  @override
+  Future<bool> interceptReplace(
+    TextEditingDeltaReplacement replacement,
+    EditorState editorState,
+    List<CharacterShortcutEvent> characterShortcutEvents,
+  ) async {
+    return true;
+  }
+
+  @override
+  Future<bool> interceptNonTextUpdate(
+    TextEditingDeltaNonTextUpdate nonTextUpdate,
+    EditorState editorState,
+    List<CharacterShortcutEvent> characterShortcutEvents,
+  ) async {
+    return true;
+  }
+
+  @override
+  Future<bool> interceptPerformAction(
+    TextInputAction action,
+    EditorState editorState,
+  ) async {
+    return true;
   }
 }
